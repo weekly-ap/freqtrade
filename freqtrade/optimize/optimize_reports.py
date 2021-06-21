@@ -175,9 +175,9 @@ def generate_strategy_comparison(all_results: Dict) -> List[Dict]:
             results['results'], results['config']['dry_run_wallet'], strategy)
             )
         try:
-            max_drawdown_per, _, _, _, _ = calculate_max_drawdown(results['results'],
+            max_drawdown_per, _, _, _, _, _ = calculate_max_drawdown(results['results'],
                                                                   value_col='profit_ratio')
-            max_drawdown_abs, _, _, _, _ = calculate_max_drawdown(results['results'],
+            max_drawdown_abs, _, _, _, _, _ = calculate_max_drawdown(results['results'],
                                                                   value_col='profit_abs')
         except ValueError:
             max_drawdown_per = 0
@@ -387,13 +387,16 @@ def generate_strategy_stats(btdata: Dict[str, DataFrame],
     }
 
     try:
-        max_drawdown, _, _, _, _ = calculate_max_drawdown(
+        max_drawdown, _, _, _, _, _ = calculate_max_drawdown(
             results, value_col='profit_ratio')
-        drawdown_abs, drawdown_start, drawdown_end, high_val, low_val = calculate_max_drawdown(
+        drawdown_abs, drawdown_start, drawdown_end, high_val, low_val, pair = calculate_max_drawdown(
             results, value_col='profit_abs')
         strat_stats.update({
             'max_drawdown': max_drawdown,
             'max_drawdown_abs': drawdown_abs,
+
+            'drawdown_pair': pair,
+
             'drawdown_start': drawdown_start.strftime(DATETIME_PRINT_FORMAT),
             'drawdown_start_ts': drawdown_start.timestamp() * 1000,
             'drawdown_end': drawdown_end.strftime(DATETIME_PRINT_FORMAT),
@@ -596,8 +599,12 @@ def text_table_add_metrics(strat_results: Dict) -> str:
                                              strat_results['stake_currency'])),
 
             ('Drawdown', f"{round(strat_results['max_drawdown'] * 100, 2)}%"),
+            ('Drawdown (starting)', f"{round(100/strat_results['starting_balance'] * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value(strat_results['starting_balance'],strat_results['stake_currency'])}"),
+            ('Drawdown (moment)', f"{round(100/(strat_results['starting_balance'] + strat_results['max_drawdown_high']) * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value((strat_results['starting_balance'] + strat_results['max_drawdown_high']),strat_results['stake_currency'])}"),
+            ('Drawdown (final)', f"{round(100/strat_results['final_balance'] * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value(strat_results['final_balance'],strat_results['stake_currency'])}"),
             ('Drawdown', round_coin_value(strat_results['max_drawdown_abs'],
                                           strat_results['stake_currency'])),
+            ('Drawdown Pair', strat_results['drawdown_pair']),
             ('Drawdown high', round_coin_value(strat_results['max_drawdown_high'],
                                                strat_results['stake_currency'])),
             ('Drawdown low', round_coin_value(strat_results['max_drawdown_low'],
