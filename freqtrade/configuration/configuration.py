@@ -301,6 +301,9 @@ class Configuration:
         self._args_to_config(config, argname='export_csv',
                              logstring='Parameter --export-csv detected: {}')
 
+        self._args_to_config(config, argname='download_jobs',
+                             logstring='Parameter -j/--job-workers detected: {}')
+
         self._args_to_config(config, argname='hyperopt_jobs',
                              logstring='Parameter -j/--job-workers detected: {}')
 

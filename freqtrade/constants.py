@@ -99,6 +99,7 @@ CONF_SCHEMA = {
     'properties': {
         'max_open_trades': {'type': ['integer', 'number'], 'minimum': -1},
         'new_pairs_days': {'type': 'integer', 'default': 30},
+        'jobs': {'type': 'integer', 'default': 1},
         'timeframe': {'type': 'string'},
         'stake_currency': {'type': 'string'},
         'stake_amount': {

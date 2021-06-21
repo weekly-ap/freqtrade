@@ -243,6 +243,13 @@ AVAILABLE_CLI_OPTIONS = {
         ' Example: --export-csv hyperopt.csv',
         metavar='FILE',
     ),
+    "download_jobs": Arg(
+        '-j', '--job-workers',
+        help='The number of concurrently running jobs for downloading.',
+        type=int,
+        metavar='JOBS',
+        default=-1,
+    ),
     "hyperopt_jobs": Arg(
         '-j', '--job-workers',
         help='The number of concurrently running jobs for hyperoptimization '

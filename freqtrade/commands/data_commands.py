@@ -1,5 +1,6 @@
 import logging
 import sys
+import asyncio
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
@@ -58,12 +59,21 @@ def start_download_data(args: Dict[str, Any]) -> None:
         exchange.validate_timeframes(timeframe)
 
     try:
+        pairs_not_available = []
+        for pair in expanded_pairs:
+            if pair not in exchange.markets:
+                pairs_not_available.append(pair)
+                logger.info(f"Skipping pair {pair}...")
+                continue
+
+        expanded_pairs = list(set(expanded_pairs)-set(pairs_not_available))
 
         if config.get('download_trades'):
-            pairs_not_available = refresh_backtest_trades_data(
+            asyncio.get_event_loop().run_until_complete(refresh_backtest_trades_data(
                 exchange, pairs=expanded_pairs, datadir=config['datadir'],
                 timerange=timerange, new_pairs_days=config['new_pairs_days'],
-                erase=bool(config.get('erase')), data_format=config['dataformat_trades'])
+                erase=bool(config.get('erase')), data_format=config['dataformat_trades'],
+                jobs=config.get('download_jobs', 1)))
 
             # Convert downloaded trade data to different timeframes
             convert_trades_to_ohlcv(
@@ -73,11 +83,12 @@ def start_download_data(args: Dict[str, Any]) -> None:
                 data_format_trades=config['dataformat_trades'],
             )
         else:
-            pairs_not_available = refresh_backtest_ohlcv_data(
+            asyncio.get_event_loop().run_until_complete(refresh_backtest_ohlcv_data(
                 exchange, pairs=expanded_pairs, timeframes=config['timeframes'],
                 datadir=config['datadir'], timerange=timerange,
                 new_pairs_days=config['new_pairs_days'],
-                erase=bool(config.get('erase')), data_format=config['dataformat_ohlcv'])
+                erase=bool(config.get('erase')), data_format=config['dataformat_ohlcv'],
+                jobs=config.get('download_jobs', 1)))
 
     except KeyboardInterrupt:
         sys.exit("SIGINT received, aborting ...")

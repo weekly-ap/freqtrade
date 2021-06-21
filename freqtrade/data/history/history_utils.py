@@ -1,11 +1,14 @@
 import logging
 import operator
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import arrow
 from pandas import DataFrame
+
+import numpy as np
 
 from freqtrade.configuration import TimeRange
 from freqtrade.constants import DEFAULT_DATAFRAME_COLUMNS
@@ -152,7 +155,7 @@ def _load_cached_data_for_updating(pair: str, timeframe: str, timerange: Optiona
     return data, start_ms
 
 
-def _download_pair_history(datadir: Path,
+async def _download_pair_history(datadir: Path,
                            exchange: Exchange,
                            pair: str, *,
                            new_pairs_days: int = 30,
@@ -190,7 +193,7 @@ def _download_pair_history(datadir: Path,
                      f"{data.iloc[-1]['date']:%Y-%m-%d %H:%M:%S}" if not data.empty else 'None')
 
         # Default since_ms to 30 days if nothing is given
-        new_data = exchange.get_historic_ohlcv(pair=pair,
+        new_data = await exchange._async_get_historic_ohlcv(pair=pair,
                                                timeframe=timeframe,
                                                since_ms=since_ms if since_ms else
                                                int(arrow.utcnow().shift(
@@ -222,38 +225,40 @@ def _download_pair_history(datadir: Path,
         return False
 
 
-def refresh_backtest_ohlcv_data(exchange: Exchange, pairs: List[str], timeframes: List[str],
+async def refresh_backtest_ohlcv_data(exchange: Exchange, pairs: List[str], timeframes: List[str],
                                 datadir: Path, timerange: Optional[TimeRange] = None,
                                 new_pairs_days: int = 30, erase: bool = False,
-                                data_format: str = None) -> List[str]:
+                                data_format: str = None, jobs: int = 1, process: bool = False) -> List[str]:
     """
     Refresh stored ohlcv data for backtesting and hyperopt operations.
     Used by freqtrade download-data subcommand.
     :return: List of pairs that are not available.
     """
-    pairs_not_available = []
+
+    if not process:
+        tasks = list()
+        for pair in np.array_split(pairs, tasks):
+            tasks.append(asyncio.create_task(refresh_backtest_ohlcv_data(exchange, pair, timeframes,
+                                                        datadir, timerange, new_pairs_days, erase, data_format, jobs, True)))
+        await asyncio.wait(tasks)
+        return
+
     data_handler = get_datahandler(datadir, data_format)
     for pair in pairs:
-        if pair not in exchange.markets:
-            pairs_not_available.append(pair)
-            logger.info(f"Skipping pair {pair}...")
-            continue
         for timeframe in timeframes:
-
             if erase:
                 if data_handler.ohlcv_purge(pair, timeframe):
                     logger.info(
                         f'Deleting existing data for pair {pair}, interval {timeframe}.')
 
             logger.info(f'Downloading pair {pair}, interval {timeframe}.')
-            _download_pair_history(datadir=datadir, exchange=exchange,
-                                   pair=pair, timeframe=str(timeframe),
-                                   new_pairs_days=new_pairs_days,
-                                   timerange=timerange, data_handler=data_handler)
-    return pairs_not_available
+            await _download_pair_history(datadir=datadir, exchange=exchange,
+                                pair=pair, timeframe=str(timeframe),
+                                new_pairs_days=new_pairs_days,
+                                timerange=timerange, data_handler=data_handler)
 
 
-def _download_trades_history(exchange: Exchange,
+async def _download_trades_history(exchange: Exchange,
                              pair: str, *,
                              new_pairs_days: int = 30,
                              timerange: Optional[TimeRange] = None,
@@ -297,7 +302,7 @@ def _download_trades_history(exchange: Exchange,
         logger.info(f"Current Amount of trades: {len(trades)}")
 
         # Default since_ms to 30 days if nothing is given
-        new_trades = exchange.get_historic_trades(pair=pair,
+        new_trades = await exchange._async_get_trade_history(pair=pair,
                                                   since=since,
                                                   until=until,
                                                   from_id=from_id,
@@ -319,33 +324,35 @@ def _download_trades_history(exchange: Exchange,
         return False
 
 
-def refresh_backtest_trades_data(exchange: Exchange, pairs: List[str], datadir: Path,
+async def refresh_backtest_trades_data(exchange: Exchange, pairs: List[str], datadir: Path,
                                  timerange: TimeRange, new_pairs_days: int = 30,
-                                 erase: bool = False, data_format: str = 'jsongz') -> List[str]:
+                                 erase: bool = False, data_format: str = 'jsongz',
+                                 jobs: int = 1, process: bool = False) -> List[str]:
     """
     Refresh stored trades data for backtesting and hyperopt operations.
     Used by freqtrade download-data subcommand.
     :return: List of pairs that are not available.
     """
-    pairs_not_available = []
+
+    if not process:
+        tasks = list()
+        for pair in np.array_split(pairs, tasks):
+            tasks.append(asyncio.create_task(refresh_backtest_trades_data(exchange, pair, datadir, timerange, new_pairs_days, erase, data_format, jobs, True)))
+        await asyncio.wait(tasks)
+        return
+
     data_handler = get_datahandler(datadir, data_format=data_format)
     for pair in pairs:
-        if pair not in exchange.markets:
-            pairs_not_available.append(pair)
-            logger.info(f"Skipping pair {pair}...")
-            continue
-
         if erase:
             if data_handler.trades_purge(pair):
                 logger.info(f'Deleting existing data for pair {pair}.')
 
         logger.info(f'Downloading trades for pair {pair}.')
-        _download_trades_history(exchange=exchange,
+        await _download_trades_history(exchange=exchange,
                                  pair=pair,
                                  new_pairs_days=new_pairs_days,
                                  timerange=timerange,
                                  data_handler=data_handler)
-    return pairs_not_available
 
 
 def convert_trades_to_ohlcv(pairs: List[str], timeframes: List[str],
