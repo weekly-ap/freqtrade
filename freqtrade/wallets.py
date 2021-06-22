@@ -207,8 +207,9 @@ class Wallets:
             if stake_amount == UNLIMITED_STAKE_AMOUNT:
                 stake_amount = self._calculate_unlimited_stake_amount(
                     available_amount, val_tied_up)
-            if 'max_stake_amount' in self._config:
-                if stake_amount > self._config['max_stake_amount']:
-                    stake_amount = self._config['max_stake_amount']
+                    
+        if 'max_stake_amount' in self._config:
+            if stake_amount > self._config['max_stake_amount']:
+                stake_amount = self._config['max_stake_amount']
 
         return self._check_available_stake_amount(stake_amount, available_amount)
