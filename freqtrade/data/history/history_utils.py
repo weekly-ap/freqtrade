@@ -237,7 +237,7 @@ async def refresh_backtest_ohlcv_data(exchange: Exchange, pairs: List[str], time
 
     if not process:
         tasks = list()
-        for pairs in np.array_split(pairs, jobs):
+        for pairs in np.array_split(pairs, max(jobs, 1)):
             tasks.append(asyncio.create_task(refresh_backtest_ohlcv_data(
                 exchange=exchange,
                 pairs=pairs,
