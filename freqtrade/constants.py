@@ -62,7 +62,7 @@ DUST_PER_COIN = {
 }
 
 
-# Soure files with destination directories within user-directory
+# Source files with destination directories within user-directory
 USER_DATA_FILES = {
     'sample_strategy.py': USERPATH_STRATEGIES,
     'sample_hyperopt_advanced.py': USERPATH_HYPEROPTS,
@@ -155,7 +155,7 @@ CONF_SCHEMA = {
                 },
                 'price_side': {'type': 'string', 'enum': ORDERBOOK_SIDES, 'default': 'bid'},
                 'use_order_book': {'type': 'boolean'},
-                'order_book_top': {'type': 'integer', 'maximum': 20, 'minimum': 1},
+                'order_book_top': {'type': 'integer', 'minimum': 1, 'maximum': 50, },
                 'check_depth_of_market': {
                     'type': 'object',
                     'properties': {
@@ -164,7 +164,7 @@ CONF_SCHEMA = {
                     }
                 },
             },
-            'required': ['ask_last_balance']
+            'required': ['price_side']
         },
         'ask_strategy': {
             'type': 'object',
@@ -177,13 +177,13 @@ CONF_SCHEMA = {
                     'exclusiveMaximum': False,
                 },
                 'use_order_book': {'type': 'boolean'},
-                'order_book_min': {'type': 'integer', 'minimum': 1},
-                'order_book_max': {'type': 'integer', 'minimum': 1, 'maximum': 50},
+                'order_book_top': {'type': 'integer', 'minimum': 1, 'maximum': 50, },
                 'use_sell_signal': {'type': 'boolean'},
                 'sell_profit_only': {'type': 'boolean'},
                 'sell_profit_offset': {'type': 'number'},
                 'ignore_roi_if_buy_signal': {'type': 'boolean'}
-            }
+            },
+            'required': ['price_side']
         },
         'order_types': {
             'type': 'object',

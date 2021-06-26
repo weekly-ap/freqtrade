@@ -270,7 +270,7 @@ class IStrategy(ABC, HyperStrategyMixin):
         :param current_rate: Rate, calculated based on pricing settings in ask_strategy.
         :param current_profit: Current profit (as ratio), calculated based on current_rate.
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
-        :return float: New stoploss value, relative to the currentrate
+        :return float: New stoploss value, relative to the current_rate
         """
         return self.stoploss
 
@@ -301,7 +301,7 @@ class IStrategy(ABC, HyperStrategyMixin):
     def informative_pairs(self) -> ListPairsWithTimeframes:
         """
         Define additional, informative pair/interval combinations to be cached from the exchange.
-        These pair/interval combinations are non-tradeable, unless they are part
+        These pair/interval combinations are non-tradable, unless they are part
         of the whitelist as well.
         For more information, please consult the documentation
         :return: List of tuples in the format (pair, interval)
@@ -349,7 +349,7 @@ class IStrategy(ABC, HyperStrategyMixin):
         The 2nd, optional parameter ensures that locks are applied until the new candle arrives,
         and not stop at 14:00:00 - while the next candle arrives at 14:00:02 leaving a gap
         of 2 seconds for a buy to happen on an old signal.
-        :param: pair: "Pair to check"
+        :param pair: "Pair to check"
         :param candle_date: Date of the last candle. Optional, defaults to current date
         :returns: locking state of the pair in question.
         """
@@ -733,7 +733,8 @@ class IStrategy(ABC, HyperStrategyMixin):
         Based on TA indicators, populates the buy signal for the given dataframe
         This method should not be overridden.
         :param dataframe: DataFrame
-        :param pair: Additional information, like the currently traded pair
+        :param metadata: Additional information dictionary, with details like the
+            currently traded pair
         :return: DataFrame with buy column
         """
         logger.debug(f"Populating buy signals for pair {metadata.get('pair')}.")
@@ -750,7 +751,8 @@ class IStrategy(ABC, HyperStrategyMixin):
         Based on TA indicators, populates the sell signal for the given dataframe
         This method should not be overridden.
         :param dataframe: DataFrame
-        :param pair: Additional information, like the currently traded pair
+        :param metadata: Additional information dictionary, with details like the
+            currently traded pair
         :return: DataFrame with sell column
         """
         logger.debug(f"Populating sell signals for pair {metadata.get('pair')}.")

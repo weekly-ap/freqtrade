@@ -18,7 +18,7 @@ from freqtrade.enums import SellType, State
 from freqtrade.exceptions import ExchangeError, PricingError
 from freqtrade.exchange import timeframe_to_minutes, timeframe_to_msecs
 from freqtrade.loggers import bufferHandler
-from freqtrade.misc import shorten_date
+from freqtrade.misc import decimals_per_coin, shorten_date
 from freqtrade.persistence import PairLocks, Trade
 from freqtrade.persistence.models import PairLock
 from freqtrade.plugins.pairlist.pairlist_helpers import expand_pairlist
@@ -104,6 +104,7 @@ class RPC:
         val = {
             'dry_run': config['dry_run'],
             'stake_currency': config['stake_currency'],
+            'stake_currency_decimals':  decimals_per_coin(config['stake_currency']),
             'stake_amount': config['stake_amount'],
             'max_open_trades': (config['max_open_trades']
                                 if config['max_open_trades'] != float('inf') else -1),
@@ -180,9 +181,9 @@ class RPC:
                     base_currency=self._freqtrade.config['stake_currency'],
                     close_profit=trade.close_profit if trade.close_profit is not None else None,
                     current_rate=current_rate,
-                    current_profit=current_profit,  # Deprectated
-                    current_profit_pct=round(current_profit * 100, 2),  # Deprectated
-                    current_profit_abs=current_profit_abs,  # Deprectated
+                    current_profit=current_profit,  # Deprecated
+                    current_profit_pct=round(current_profit * 100, 2),  # Deprecated
+                    current_profit_abs=current_profit_abs,  # Deprecated
                     profit_ratio=current_profit,
                     profit_pct=round(current_profit * 100, 2),
                     profit_abs=current_profit_abs,
@@ -824,8 +825,11 @@ class RPC:
         )
         if pair not in _data:
             raise RPCException(f"No data for {pair}, {timeframe} in {timerange} found.")
+        from freqtrade.data.dataprovider import DataProvider
         from freqtrade.resolvers.strategy_resolver import StrategyResolver
         strategy = StrategyResolver.load_strategy(config)
+        strategy.dp = DataProvider(config, exchange=None, pairlists=None)
+
         df_analyzed = strategy.analyze_ticker(_data[pair], {'pair': pair})
 
         return RPC._convert_dataframe_to_dict(strategy.get_strategy_name(), pair, timeframe,

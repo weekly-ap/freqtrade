@@ -21,7 +21,7 @@ def store_backtest_stats(recordfilename: Path, stats: Dict[str, DataFrame]) -> N
     Stores backtest results
     :param recordfilename: Path object, which can either be a filename or a directory.
         Filenames will be appended with a timestamp right before the suffix
-        while for diectories, <directory>/backtest-result-<datetime>.json will be used as filename
+        while for directories, <directory>/backtest-result-<datetime>.json will be used as filename
     :param stats: Dataframe containing the backtesting statistics
     """
     if recordfilename.is_dir():
@@ -300,7 +300,7 @@ def generate_strategy_stats(btdata: Dict[str, DataFrame],
     :param min_date: Backtest start date
     :param max_date: Backtest end date
     :param market_change: float indicating the market change
-    :return: Dictionary containing results per strategy and a stratgy summary.
+    :return: Dictionary containing results per strategy and a strategy summary.
     """
     results: Dict[str, DataFrame] = content['results']
     if not isinstance(results, DataFrame):
@@ -439,7 +439,7 @@ def generate_backtest_stats(btdata: Dict[str, DataFrame],
                      { Strategy: {'results: results, 'config: config}}.
     :param min_date: Backtest start date
     :param max_date: Backtest end date
-    :return: Dictionary containing results per strategy and a stratgy summary.
+    :return: Dictionary containing results per strategy and a strategy summary.
     """
     result: Dict[str, Any] = {'strategy': {}}
     market_change = calculate_market_change(btdata, 'close')
@@ -510,9 +510,8 @@ def text_table_sell_reason(sell_reason_stats: List[Dict[str, Any]], stake_curren
 def text_table_strategy(strategy_results, stake_currency: str) -> str:
     """
     Generate summary table per strategy
+    :param strategy_results: Dict of <Strategyname: DataFrame> containing results for all strategies
     :param stake_currency: stake-currency - used to correctly name headers
-    :param max_open_trades: Maximum allowed open trades used for backtest
-    :param all_results: Dict of <Strategyname: DataFrame> containing results for all strategies
     :return: pretty printed table with tabulate as string
     """
     floatfmt = _get_line_floatfmt(stake_currency)
