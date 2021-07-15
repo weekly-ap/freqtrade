@@ -116,6 +116,7 @@ class Backtesting:
 
         # Get maximum required startup period
         self.required_startup = max([strat.startup_candle_count for strat in self.strategylist])
+        self.exchange.validate_required_startup_candles(self.required_startup, self.timeframe)
 
     def __del__(self):
         LoggingMixin.show_output = True
@@ -128,6 +129,8 @@ class Backtesting:
         """
         self.strategy: IStrategy = strategy
         strategy.dp = self.dataprovider
+        # Attach Wallets to Strategy baseclass
+        IStrategy.wallets = self.wallets
         # Set stoploss_on_exchange to false for backtesting,
         # since a "perfect" stoploss-sell is assumed anyway
         # And the regular "stoploss" function would not apply to that case
@@ -311,7 +314,18 @@ class Backtesting:
             stake_amount = self.wallets.get_trade_stake_amount(pair, None)
         except DependencyException:
             return None
-        min_stake_amount = self.exchange.get_min_pair_stake_amount(pair, row[OPEN_IDX], -0.05)
+
+        min_stake_amount = self.exchange.get_min_pair_stake_amount(pair, row[OPEN_IDX], -0.05) or 0
+        max_stake_amount = self.wallets.get_available_stake_amount()
+
+        stake_amount = strategy_safe_wrapper(self.strategy.custom_stake_amount,
+                                             default_retval=stake_amount)(
+            pair=pair, current_time=row[DATE_IDX].to_pydatetime(), current_rate=row[OPEN_IDX],
+            proposed_stake=stake_amount, min_stake=min_stake_amount, max_stake=max_stake_amount)
+        stake_amount = self.wallets._validate_stake_amount(pair, stake_amount, min_stake_amount)
+
+        if not stake_amount:
+            return None
 
         order_type = self.strategy.order_types['buy']
         time_in_force = self.strategy.order_time_in_force['sell']
