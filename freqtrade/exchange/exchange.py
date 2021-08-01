@@ -387,7 +387,7 @@ class Exchange:
                 # its contents depend on the exchange.
                 # It can also be a string or similar ... so we need to verify that first.
             elif (isinstance(self.markets[pair].get('info', None), dict)
-                  and self.markets[pair].get('info', {}).get('IsRestricted', False)):
+                  and self.markets[pair].get('info', {}).get('prohibitedIn', False)):
                 # Warn users about restricted pairs in whitelist.
                 # We cannot determine reliably if Users are affected.
                 logger.warning(f"Pair {pair} is restricted for some users on this exchange."
@@ -1037,11 +1037,11 @@ class Exchange:
                     f"determined. Orderbook: {order_book}"
                 )
                 raise PricingError from e
-
-            logger.info(f"{name} price from orderbook {conf_strategy['price_side'].capitalize()}"
-                        f"side - top {order_book_top} order book {side} rate {rate:.8f}")
+            price_side = {conf_strategy['price_side'].capitalize()}
+            logger.debug(f"{name} price from orderbook {price_side}"
+                         f"side - top {order_book_top} order book {side} rate {rate:.8f}")
         else:
-            logger.info(f"Using Last {conf_strategy['price_side'].capitalize()} / Last Price")
+            logger.debug(f"Using Last {conf_strategy['price_side'].capitalize()} / Last Price")
             ticker = self.fetch_ticker(pair)
             ticker_rate = ticker[conf_strategy['price_side']]
             if ticker['last']:

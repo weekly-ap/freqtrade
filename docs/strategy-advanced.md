@@ -114,6 +114,36 @@ class AwesomeStrategy(IStrategy):
 
 See [Dataframe access](#dataframe-access) for more information about dataframe use in strategy callbacks.
 
+## Buy Tag
+
+When your strategy has multiple buy signals, you can name the signal that triggered.
+Then you can access you buy signal on `custom_sell`
+
+```python
+def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    dataframe.loc[
+        (
+            (dataframe['rsi'] < 35) &
+            (dataframe['volume'] > 0)
+        ),
+        ['buy', 'buy_tag']] = (1, 'buy_signal_rsi')
+
+    return dataframe
+
+def custom_sell(self, pair: str, trade: Trade, current_time: datetime, current_rate: float,
+                    current_profit: float, **kwargs):
+    dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+    last_candle = dataframe.iloc[-1].squeeze()
+    if trade.buy_tag == 'buy_signal_rsi' and last_candle['rsi'] > 80:
+        return 'sell_signal_rsi'
+    return None
+
+```
+
+!!! Note
+    `buy_tag` is limited to 100 characters, remaining data will be truncated.
+
+
 ## Custom stoploss
 
 The stoploss price can only ever move upwards - if the stoploss value returned from `custom_stoploss` would result in a lower stoploss price than was previously set, it will be ignored. The traditional `stoploss` value serves as an absolute lower level and will be instated as the initial stoploss.
@@ -454,7 +484,7 @@ class AwesomeStrategy(IStrategy):
     # ... populate_* methods
 
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, **kwargs) -> bool:
+                            time_in_force: str, current_time: datetime, **kwargs) -> bool:
         """
         Called right before placing a buy order.
         Timing for this function is critical, so avoid doing heavy computations or
@@ -469,6 +499,7 @@ class AwesomeStrategy(IStrategy):
         :param amount: Amount in target (quote) currency that's going to be traded.
         :param rate: Rate that's going to be used when using limit orders
         :param time_in_force: Time in force. Defaults to GTC (Good-til-cancelled).
+        :param current_time: datetime object, containing the current datetime
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         :return bool: When True is returned, then the buy-order is placed on the exchange.
             False aborts the process
@@ -490,7 +521,8 @@ class AwesomeStrategy(IStrategy):
     # ... populate_* methods
 
     def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
-                           rate: float, time_in_force: str, sell_reason: str, **kwargs) -> bool:
+                           rate: float, time_in_force: str, sell_reason: str,
+                           current_time: datetime, **kwargs) -> bool:
         """
         Called right before placing a regular sell order.
         Timing for this function is critical, so avoid doing heavy computations or
@@ -508,6 +540,7 @@ class AwesomeStrategy(IStrategy):
         :param sell_reason: Sell reason.
             Can be any of ['roi', 'stop_loss', 'stoploss_on_exchange', 'trailing_stop_loss',
                            'sell_signal', 'force_sell', 'emergency_sell']
+        :param current_time: datetime object, containing the current datetime
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         :return bool: When True is returned, then the sell-order is placed on the exchange.
             False aborts the process
