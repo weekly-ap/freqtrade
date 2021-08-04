@@ -288,10 +288,10 @@ class IStrategy(ABC, HyperStrategyMixin):
         time. This method is not called when sell signal is set.
 
         This method should be overridden to create sell signals that depend on trade parameters. For
-        example you could implement a stoploss relative to candle when trade was opened, or a custom
-        1:2 risk-reward ROI.
+        example you could implement a sell relative to the candle when the trade was opened,
+        or a custom 1:2 risk-reward ROI.
 
-        Custom sell reason max length is 64. Exceeding this limit will raise OperationalException.
+        Custom sell reason max length is 64. Exceeding characters will be removed.
 
         :param pair: Pair that's currently analyzed
         :param trade: trade object.
@@ -483,8 +483,6 @@ class IStrategy(ABC, HyperStrategyMixin):
             message = "No dataframe returned (return statement missing?)."
         elif 'buy' not in dataframe:
             message = "Buy column not set."
-        elif 'sell' not in dataframe:
-            message = "Sell column not set."
         elif df_len != len(dataframe):
             message = message_template.format("length")
         elif df_close != dataframe["close"].iloc[-1]:
@@ -531,7 +529,11 @@ class IStrategy(ABC, HyperStrategyMixin):
             return False, False, None
 
         buy = latest[SignalType.BUY.value] == 1
-        sell = latest[SignalType.SELL.value] == 1
+
+        sell = False
+        if SignalType.SELL.value in latest:
+            sell = latest[SignalType.SELL.value] == 1
+
         buy_tag = latest.get(SignalTagType.BUY_TAG.value, None)
 
         logger.debug('trigger: %s (pair=%s) buy=%s sell=%s',
