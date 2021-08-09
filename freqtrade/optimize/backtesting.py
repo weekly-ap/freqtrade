@@ -323,14 +323,14 @@ class Backtesting:
             return sell_row[OPEN_IDX]
 
     def _get_sell_trade_entry(self, trade: LocalTrade, sell_row: Tuple) -> Optional[LocalTrade]:
-
+        sell_candle_time = sell_row[DATE_IDX].to_pydatetime()
         sell = self.strategy.should_sell(trade, sell_row[OPEN_IDX],  # type: ignore
-                                         sell_row[DATE_IDX].to_pydatetime(), sell_row[BUY_IDX],
+                                         sell_candle_time, sell_row[BUY_IDX],
                                          sell_row[SELL_IDX],
                                          low=sell_row[LOW_IDX], high=sell_row[HIGH_IDX])
 
         if sell.sell_flag:
-            trade.close_date = sell_row[DATE_IDX].to_pydatetime()
+            trade.close_date = sell_candle_time
             trade.sell_reason = sell.sell_reason
             trade_dur = int((trade.close_date_utc - trade.open_date_utc).total_seconds() // 60)
             closerate = self._get_close_rate(sell_row, trade, sell, trade_dur)
@@ -342,7 +342,7 @@ class Backtesting:
                     rate=closerate,
                     time_in_force=time_in_force,
                     sell_reason=sell.sell_reason,
-                    current_time=sell_row[DATE_IDX].to_pydatetime()):
+                    current_time=sell_candle_time):
                 return None
 
             trade.close(closerate, show_msg=False)
@@ -466,6 +466,8 @@ class Backtesting:
             for i, pair in enumerate(data):
                 row_index = indexes[pair]
                 try:
+                    # Row is treated as "current incomplete candle".
+                    # Buy / sell signals are shifted by 1 to compensate for this.
                     row = data[pair][row_index]
                 except IndexError:
                     # missing Data for one pair at the end.
@@ -476,8 +478,8 @@ class Backtesting:
                 if row[DATE_IDX] > tmp:
                     continue
 
-                row_index += 1
                 self.dataprovider._set_dataframe_max_index(row_index)
+                row_index += 1
                 indexes[pair] = row_index
 
                 # without positionstacking, we can only have one open trade per pair.
