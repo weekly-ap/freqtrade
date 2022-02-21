@@ -209,13 +209,21 @@ def generate_strategy_comparison(bt_stats: Dict) -> List[Dict]:
     """
 
     tabular_data = []
-    for strategy, result in bt_stats.items():
-        tabular_data.append(deepcopy(result['results_per_pair'][-1]))
-        # Update "key" to strategy (results_per_pair has it as "Total").
-        tabular_data[-1]['key'] = strategy
-        tabular_data[-1]['max_drawdown_account'] = result['max_drawdown_account']
-        tabular_data[-1]['max_drawdown_abs'] = round_coin_value(
-            result['max_drawdown_abs'], result['stake_currency'], False)
+    for strategy, results in all_results.items():
+        tabular_data.append(_generate_result_line(
+            results['results'], results['config']['dry_run_wallet'], strategy)
+        )
+        try:
+            max_drawdown_per, _, _, _, _, _ = calculate_max_drawdown(results['results'],
+                                                                  value_col='profit_ratio')
+            max_drawdown_abs, _, _, _, _, _ = calculate_max_drawdown(results['results'],
+                                                                  value_col='profit_abs')
+        except ValueError:
+            max_drawdown_per = 0
+            max_drawdown_abs = 0
+        tabular_data[-1]['max_drawdown_per'] = round(max_drawdown_per * 100, 2)
+        tabular_data[-1]['max_drawdown_abs'] = \
+            round_coin_value(max_drawdown_abs, results['config']['stake_currency'], False)
     return tabular_data
 
 
@@ -463,15 +471,17 @@ def generate_strategy_stats(pairlist: List[str],
     }
 
     try:
-        max_drawdown_legacy, _, _, _, _, _ = calculate_max_drawdown(
+        max_drawdown, _, _, _, _, _ = calculate_max_drawdown(
             results, value_col='profit_ratio')
-        (drawdown_abs, drawdown_start, drawdown_end, high_val, low_val,
-         max_drawdown) = calculate_max_drawdown(
-             results, value_col='profit_abs', starting_balance=starting_balance)
+        drawdown_abs, drawdown_start, drawdown_end, high_val, low_val, pair = calculate_max_drawdown(
+            results, value_col='profit_abs')
         strat_stats.update({
             'max_drawdown': max_drawdown_legacy,  # Deprecated - do not use
             'max_drawdown_account': max_drawdown,
             'max_drawdown_abs': drawdown_abs,
+
+            'drawdown_pair': pair,
+
             'drawdown_start': drawdown_start.strftime(DATETIME_PRINT_FORMAT),
             'drawdown_start_ts': drawdown_start.timestamp() * 1000,
             'drawdown_end': drawdown_end.strftime(DATETIME_PRINT_FORMAT),
@@ -738,12 +748,13 @@ def text_table_add_metrics(strat_results: Dict) -> str:
             ('Max balance', round_coin_value(strat_results['csum_max'],
                                              strat_results['stake_currency'])),
 
-            # Compatibility to show old hyperopt results
-            ('Drawdown (Account)', f"{strat_results['max_drawdown_account']:.2%}")
-            if 'max_drawdown_account' in strat_results else (
-                'Drawdown', f"{strat_results['max_drawdown']:.2%}"),
+            ('Drawdown', f"{round(strat_results['max_drawdown'] * 100, 2)}%"),
+            ('Drawdown (starting)', f"{round(100/strat_results['starting_balance'] * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value(strat_results['starting_balance'],strat_results['stake_currency'])}"),
+            ('Drawdown (moment)', f"{round(100/(strat_results['starting_balance'] + strat_results['max_drawdown_high']) * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value((strat_results['starting_balance'] + strat_results['max_drawdown_high']),strat_results['stake_currency'])}"),
+            ('Drawdown (final)', f"{round(100/strat_results['final_balance'] * strat_results['max_drawdown_abs'], 2)}% / {round_coin_value(strat_results['final_balance'],strat_results['stake_currency'])}"),
             ('Drawdown', round_coin_value(strat_results['max_drawdown_abs'],
                                           strat_results['stake_currency'])),
+            ('Drawdown Pair', strat_results.get('drawdown_pair') or 'None'),
             ('Drawdown high', round_coin_value(strat_results['max_drawdown_high'],
                                                strat_results['stake_currency'])),
             ('Drawdown low', round_coin_value(strat_results['max_drawdown_low'],

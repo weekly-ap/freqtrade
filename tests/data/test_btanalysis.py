@@ -294,25 +294,18 @@ def test_create_cum_profit1(testdatadir):
 def test_calculate_max_drawdown(testdatadir):
     filename = testdatadir / "backtest-result_new.json"
     bt_data = load_backtest_data(filename)
-    _, hdate, lowdate, hval, lval, drawdown = calculate_max_drawdown(
-        bt_data, value_col="profit_abs")
+    drawdown, hdate, lowdate, hval, lval, pair = calculate_max_drawdown(bt_data)
     assert isinstance(drawdown, float)
     assert pytest.approx(drawdown) == 0.12071099
     assert isinstance(hdate, Timestamp)
     assert isinstance(lowdate, Timestamp)
     assert isinstance(hval, float)
     assert isinstance(lval, float)
-    assert hdate == Timestamp('2018-01-25 01:30:00', tz='UTC')
-    assert lowdate == Timestamp('2018-01-25 03:50:00', tz='UTC')
-
-    underwater = calculate_underwater(bt_data)
-    assert isinstance(underwater, DataFrame)
-
+    assert isinstance(pair, str)
+    assert hdate == Timestamp('2018-01-24 14:25:00', tz='UTC')
+    assert lowdate == Timestamp('2018-01-30 04:45:00', tz='UTC')
     with pytest.raises(ValueError, match='Trade dataframe empty.'):
-        calculate_max_drawdown(DataFrame())
-
-    with pytest.raises(ValueError, match='Trade dataframe empty.'):
-        calculate_underwater(DataFrame())
+        drawdown, hdate, lowdate, hval, lval, pair = calculate_max_drawdown(DataFrame())
 
 
 def test_calculate_csum(testdatadir):

@@ -484,23 +484,13 @@ def calculate_max_drawdown(trades: pd.DataFrame, *, date_col: str = 'close_date'
     idxmin = max_drawdown_df['drawdown'].idxmin()
     if idxmin == 0:
         raise ValueError("No losing trade, therefore no drawdown.")
+    pair = profit_results.loc[max_drawdown_df.iloc[:idxmin]['high_value'].idxmax(), 'pair']
     high_date = profit_results.loc[max_drawdown_df.iloc[:idxmin]['high_value'].idxmax(), date_col]
     low_date = profit_results.loc[idxmin, date_col]
     high_val = max_drawdown_df.loc[max_drawdown_df.iloc[:idxmin]
                                    ['high_value'].idxmax(), 'cumulative']
     low_val = max_drawdown_df.loc[idxmin, 'cumulative']
-    max_drawdown_rel = 0.0
-    if high_val + starting_balance != 0:
-        max_drawdown_rel = (high_val - low_val) / (high_val + starting_balance)
-
-    return (
-        abs(min(max_drawdown_df['drawdown'])),
-        high_date,
-        low_date,
-        high_val,
-        low_val,
-        max_drawdown_rel
-    )
+    return abs(min(max_drawdown_df['drawdown'])), high_date, low_date, high_val, low_val, pair
 
 
 def calculate_csum(trades: pd.DataFrame, starting_balance: float = 0) -> Tuple[float, float]:
