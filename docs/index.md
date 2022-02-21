@@ -11,7 +11,7 @@
 
 ## Introduction
 
-Freqtrade is a crypto-currency algorithmic trading software developed in python (3.7+) and supported on Windows, macOS and Linux.
+Freqtrade is a free and open source crypto trading bot written in Python. It is designed to support all major exchanges and be controlled via Telegram or webUI. It contains backtesting, plotting and money management tools as well as strategy optimization by machine learning.
 
 !!! Danger "DISCLAIMER"
     This software is for educational purposes only. Do not risk money which you are afraid to lose. USE THE SOFTWARE AT YOUR OWN RISK. THE AUTHORS AND ALL AFFILIATES ASSUME NO RESPONSIBILITY FOR YOUR TRADING RESULTS.
@@ -19,6 +19,12 @@ Freqtrade is a crypto-currency algorithmic trading software developed in python 
     Always start by running a trading bot in Dry-run and do not engage money before you understand how it works and what profit/loss you should expect.
 
     We strongly recommend you to have basic coding skills and Python knowledge. Do not hesitate to read the source code and understand the mechanisms of this bot, algorithms and techniques implemented in it.
+
+![freqtrade screenshot](assets/freqtrade-screenshot.png)
+
+## Sponsored promotion
+
+[![tokenbot-promo](assets/TokenBot-Freqtrade-banner.png)](https://tokenbot.com/?utm_source=github&utm_medium=freqtrade&utm_campaign=algodevs)
 
 ## Features
 
@@ -29,17 +35,19 @@ Freqtrade is a crypto-currency algorithmic trading software developed in python 
 - Select markets: Create your static list or use an automatic one based on top traded volumes and/or prices (not available during backtesting). You can also explicitly blacklist markets you don't want to trade.
 - Run: Test your strategy with simulated money (Dry-Run mode) or deploy it with real money (Live-Trade mode).
 - Run using Edge (optional module): The concept is to find the best historical [trade expectancy](edge.md#expectancy) by markets based on variation of the stop-loss and then allow/reject markets to trade. The sizing of the trade is based on a risk of a percentage of your capital.
-- Control/Monitor: Use Telegram or a REST API (start/stop the bot, show profit/loss, daily summary, current open trades results, etc.).
+- Control/Monitor: Use Telegram or a WebUI (start/stop the bot, show profit/loss, daily summary, current open trades results, etc.).
 - Analyse: Further analysis can be performed on either Backtesting data or Freqtrade trading history (SQL database), including automated standard plots, and methods to load the data into [interactive environments](data-analysis.md).
 
 ## Supported exchange marketplaces
 
 Please read the [exchange specific notes](exchanges.md) to learn about eventual, special configurations needed for each exchange.
 
-- [X] [Binance](https://www.binance.com/) ([*Note for binance users](exchanges.md#blacklists))
+- [X] [Binance](https://www.binance.com/) ([*Note for binance users](exchanges.md#binance-blacklist))
 - [X] [Bittrex](https://bittrex.com/)
 - [X] [FTX](https://ftx.com)
+- [X] [Gate.io](https://www.gate.io/ref/6266643)
 - [X] [Kraken](https://kraken.com/)
+- [X] [OKX](https://www.okx.com/)
 - [ ] [potentially many others through <img alt="ccxt" width="30px" src="assets/ccxt-logo.svg" />](https://github.com/ccxt/ccxt/). _(We cannot guarantee they will work)_
 
 ### Community tested
@@ -47,7 +55,7 @@ Please read the [exchange specific notes](exchanges.md) to learn about eventual,
 Exchanges confirmed working by the community:
 
 - [X] [Bitvavo](https://bitvavo.com/)
-- [X] [Kukoin](https://www.kucoin.com/)
+- [X] [Kucoin](https://www.kucoin.com/)
 
 ## Requirements
 
@@ -65,7 +73,7 @@ To run this bot we recommend you a linux cloud instance with a minimum of:
 
 Alternatively
 
-- Python 3.7+
+- Python 3.8+
 - pip (pip3)
 - git
 - TA-Lib
@@ -79,4 +87,4 @@ For any questions not covered by the documentation or for further information ab
 
 ## Ready to try?
 
-Begin by reading our installation guide [for docker](docker_quickstart.md) (recommended), or for [installation without docker](installation.md).
+Begin by reading the installation guide [for docker](docker_quickstart.md) (recommended), or for [installation without docker](installation.md).

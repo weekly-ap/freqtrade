@@ -9,49 +9,46 @@
     "cancel_open_orders_on_exit": false,
     "unfilledtimeout": {
         "buy": 10,
-        "sell": 30
+        "sell": 10,
+        "exit_timeout_count": 0,
+        "unit": "minutes"
     },
     "bid_strategy": {
-        "ask_last_balance": 0.0,
         "use_order_book": true,
+        "ask_last_balance": 0.0,
         "order_book_top": 1,
         "check_depth_of_market": {
             "enabled": false,
             "bids_to_ask_delta": 1
         }
     },
-    "ask_strategy": {
+    "ask_strategy":{
         "use_order_book": true,
         "order_book_top": 1
     },
     "exchange": {
-        "name": "binance",
+        "name": "bittrex",
         "key": "your_exchange_key",
         "secret": "your_exchange_secret",
         "ccxt_config": {"enableRateLimit": true},
         "ccxt_async_config": {
             "enableRateLimit": true,
-            "rateLimit": 200
+            "rateLimit": 500
         },
         "pair_whitelist": [
-            "ALGO/BTC",
-            "ATOM/BTC",
-            "BAT/BTC",
-            "BCH/BTC",
-            "BRD/BTC",
-            "EOS/BTC",
             "ETH/BTC",
-            "IOTA/BTC",
-            "LINK/BTC",
             "LTC/BTC",
-            "NEO/BTC",
-            "NXS/BTC",
-            "XMR/BTC",
+            "ETC/BTC",
+            "RVN/BTC",
+            "CRO/BTC",
+            "XLM/BTC",
             "XRP/BTC",
-            "XTZ/BTC"
+            "TRX/BTC",
+            "ADA/BTC",
+            "DOT/BTC"
         ],
         "pair_blacklist": [
-            "BNB/BTC"
+            "DOGE/BTC"
         ]
     },
     "pairlists": [

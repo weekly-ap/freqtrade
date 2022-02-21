@@ -10,6 +10,9 @@ freqtrade-plot.html
 freqtrade-profit-plot.html
 freqtrade/rpc/api_server/ui/*
 
+# Macos related
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -95,3 +98,8 @@ target/
 
 #exceptions
 !*.gitkeep
+!config_examples/config_binance.example.json
+!config_examples/config_bittrex.example.json
+!config_examples/config_ftx.example.json
+!config_examples/config_full.example.json
+!config_examples/config_kraken.example.json

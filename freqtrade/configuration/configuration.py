@@ -11,6 +11,7 @@ from freqtrade import constants
 from freqtrade.configuration.check_exchange import check_exchange
 from freqtrade.configuration.deprecated_settings import process_temporary_deprecated_settings
 from freqtrade.configuration.directory_operations import create_datadir, create_userdata_dir
+from freqtrade.configuration.environment_vars import enironment_vars_to_dict
 from freqtrade.configuration.load_config import load_config_file, load_file
 from freqtrade.enums import NON_UTIL_MODES, TRADING_MODES, RunMode
 from freqtrade.exceptions import OperationalException
@@ -72,6 +73,11 @@ class Configuration:
             # Merge config options, overwriting old values
             config = deep_merge_dicts(load_config_file(path), config)
 
+        # Load environment variables
+        env_data = enironment_vars_to_dict()
+        config = deep_merge_dicts(env_data, config)
+
+        config['config_files'] = files
         # Normalize config
         if 'internals' not in config:
             config['internals'] = {}
@@ -236,6 +242,13 @@ class Configuration:
             except ValueError:
                 pass
 
+        self._args_to_config(config, argname='timeframe_detail',
+                             logstring='Parameter --timeframe-detail detected, '
+                             'using {} for intra-candle backtesting ...')
+
+        self._args_to_config(config, argname='backtest_show_pair_list',
+                             logstring='Parameter --show-pair-list detected.')
+
         self._args_to_config(config, argname='stake_amount',
                              logstring='Parameter --stake-amount detected, '
                              'overriding stake_amount to: {} ...')
@@ -260,8 +273,15 @@ class Configuration:
         self._args_to_config(config, argname='export',
                              logstring='Parameter --export detected: {} ...')
 
+        self._args_to_config(config, argname='backtest_breakdown',
+                             logstring='Parameter --breakdown detected ...')
+
+        self._args_to_config(config, argname='backtest_cache',
+                             logstring='Parameter --cache={} detected ...')
+
         self._args_to_config(config, argname='disableparamexport',
                              logstring='Parameter --disableparamexport detected: {} ...')
+
         # Edge section:
         if 'stoploss_range' in self.args and self.args["stoploss_range"]:
             txt_range = eval(self.args["stoploss_range"])
@@ -360,6 +380,9 @@ class Configuration:
         self._args_to_config(config, argname='hyperopt_show_no_header',
                              logstring='Parameter --no-header detected: {}')
 
+        self._args_to_config(config, argname="hyperopt_ignore_missing_space",
+                             logstring="Paramter --ignore-missing-space detected: {}")
+
     def _process_plot_options(self, config: Dict[str, Any]) -> None:
 
         self._args_to_config(config, argname='pairs',
@@ -395,6 +418,9 @@ class Configuration:
         self._args_to_config(config, argname='days',
                              logstring='Detected --days: {}')
 
+        self._args_to_config(config, argname='include_inactive',
+                             logstring='Detected --include-inactive-pairs: {}')
+
         self._args_to_config(config, argname='download_trades',
                              logstring='Detected --dl-trades: {}')
 
@@ -405,7 +431,6 @@ class Configuration:
                              logstring='Using "{}" to store trades data.')
 
     def _process_data_options(self, config: Dict[str, Any]) -> None:
-
         self._args_to_config(config, argname='new_pairs_days',
                              logstring='Detected --new-pairs-days: {}')
 

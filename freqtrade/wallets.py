@@ -3,7 +3,7 @@
 
 import logging
 from copy import deepcopy
-from typing import Any, Dict, NamedTuple
+from typing import Any, Dict, NamedTuple, Optional
 
 import arrow
 
@@ -73,7 +73,7 @@ class Wallets:
             tot_profit = Trade.get_total_closed_profit()
         else:
             tot_profit = LocalTrade.total_profit
-        tot_in_trades = sum([trade.stake_amount for trade in open_trades])
+        tot_in_trades = sum(trade.stake_amount for trade in open_trades)
 
         current_stake = self.start_cap + tot_profit - tot_in_trades
         _wallets[self._config['stake_currency']] = Wallet(
@@ -128,6 +128,19 @@ class Wallets:
 
     def get_all_balances(self) -> Dict[str, Any]:
         return self._wallets
+
+    def get_starting_balance(self) -> float:
+        """
+        Retrieves starting balance - based on either available capital,
+        or by using current balance subtracting
+        """
+        if "available_capital" in self._config:
+            return self._config['available_capital']
+        else:
+            tot_profit = Trade.get_total_closed_profit()
+            open_stakes = Trade.total_open_trades_stakes()
+            available_balance = self.get_free(self._config['stake_currency'])
+            return available_balance - tot_profit + open_stakes
 
     def get_total_stake_amount(self):
         """
@@ -198,7 +211,7 @@ class Wallets:
 
         return stake_amount
 
-    def get_trade_stake_amount(self, pair: str, edge=None) -> float:
+    def get_trade_stake_amount(self, pair: str, edge=None, update: bool = True) -> float:
         """
         Calculate stake amount for the trade
         :return: float: Stake amount
@@ -206,7 +219,8 @@ class Wallets:
         """
         stake_amount: float
         # Ensure wallets are uptodate.
-        self.update()
+        if update:
+            self.update()
         val_tied_up = Trade.total_open_trades_stakes()
         available_amount = self.get_available_stake_amount()
 
@@ -225,26 +239,40 @@ class Wallets:
 
         return self._check_available_stake_amount(stake_amount, available_amount)
 
-    def _validate_stake_amount(self, pair, stake_amount, min_stake_amount):
+    def validate_stake_amount(
+            self, pair: str, stake_amount: Optional[float], min_stake_amount: Optional[float]):
         if not stake_amount:
             logger.debug(f"Stake amount is {stake_amount}, ignoring possible trade for {pair}.")
             return 0
 
         max_stake_amount = self.get_available_stake_amount()
 
-        if min_stake_amount > max_stake_amount:
-            logger.warning("Minimum stake amount > available balance.")
+        if min_stake_amount is not None and min_stake_amount > max_stake_amount:
+            if self._log:
+                logger.warning("Minimum stake amount > available balance.")
             return 0
         if min_stake_amount is not None and stake_amount < min_stake_amount:
+            if self._log:
+                logger.info(
+                    f"Stake amount for pair {pair} is too small "
+                    f"({stake_amount} < {min_stake_amount}), adjusting to {min_stake_amount}."
+                )
+            if stake_amount * 1.3 < min_stake_amount:
+                # Top-cap stake-amount adjustments to +30%.
+                if self._log:
+                    logger.info(
+                        f"Adjusted stake amount for pair {pair} is more than 30% bigger than "
+                        f"the desired stake amount of ({stake_amount:.8f} * 1.3 = "
+                        f"{stake_amount * 1.3:.8f}) < {min_stake_amount}), ignoring trade."
+                    )
+                return 0
             stake_amount = min_stake_amount
-            logger.info(
-                f"Stake amount for pair {pair} is too small ({stake_amount} < {min_stake_amount}), "
-                f"adjusting to {min_stake_amount}."
-            )
+
         if stake_amount > max_stake_amount:
+            if self._log:
+                logger.info(
+                    f"Stake amount for pair {pair} is too big "
+                    f"({stake_amount} > {max_stake_amount}), adjusting to {max_stake_amount}."
+                )
             stake_amount = max_stake_amount
-            logger.info(
-                f"Stake amount for pair {pair} is too big ({stake_amount} > {max_stake_amount}), "
-                f"adjusting to {max_stake_amount}."
-            )
         return stake_amount

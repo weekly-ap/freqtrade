@@ -8,6 +8,7 @@
     "amend_last_stake_amount": false,
     "last_stake_amount_min_ratio": 0.5,
     "dry_run": true,
+    "dry_run_wallet": 1000,
     "cancel_open_orders_on_exit": false,
     "timeframe": "5m",
     "trailing_stop": false,
@@ -18,6 +19,7 @@
     "sell_profit_only": false,
     "sell_profit_offset": 0.0,
     "ignore_roi_if_buy_signal": false,
+    "ignore_buying_expired_candle_after": 300,
     "minimal_roi": {
         "40":  0.0,
         "30":  0.01,
@@ -27,7 +29,8 @@
     "stoploss": -0.10,
     "unfilledtimeout": {
         "buy": 10,
-        "sell": 30,
+        "sell": 10,
+        "exit_timeout_count": 0,
         "unit": "minutes"
     },
     "bid_strategy": {
@@ -78,45 +81,15 @@
             "refresh_period": 1440
         }
     ],
-    "protections": [
-        {
-            "method": "StoplossGuard",
-            "lookback_period_candles": 60,
-            "trade_limit": 4,
-            "stop_duration_candles": 60,
-            "only_per_pair": false
-        },
-        {
-            "method": "CooldownPeriod",
-            "stop_duration_candles": 20
-        },
-        {
-            "method": "MaxDrawdown",
-            "lookback_period_candles": 200,
-            "trade_limit": 20,
-            "stop_duration_candles": 10,
-            "max_allowed_drawdown": 0.2
-        },
-        {
-            "method": "LowProfitPairs",
-            "lookback_period_candles": 360,
-            "trade_limit": 1,
-            "stop_duration_candles": 2,
-            "required_profit": 0.02
-        }
-    ],
     "exchange": {
         "name": "binance",
         "sandbox": false,
         "key": "your_exchange_key",
         "secret": "your_exchange_secret",
         "password": "",
-        "ccxt_config": {"enableRateLimit": true},
-        "ccxt_async_config": {
-            "enableRateLimit": true,
-            "rateLimit": 500,
-            "aiohttp_trust_env": false
-        },
+        "log_responses": false,
+        "ccxt_config": {},
+        "ccxt_async_config": {},
         "pair_whitelist": [
             "ALGO/BTC",
             "ATOM/BTC",
@@ -176,7 +149,9 @@
             },
             "sell_fill": "on",
             "buy_cancel": "on",
-            "sell_cancel": "on"
+            "sell_cancel": "on",
+            "protection_trigger": "off",
+            "protection_trigger_global": "on"
         },
         "reload": true,
         "balance_dust_level": 0.01
@@ -201,7 +176,7 @@
         "heartbeat_interval": 60
     },
     "disable_dataframe_checks": false,
-    "strategy": "DefaultStrategy",
+    "strategy": "SampleStrategy",
     "strategy_path": "user_data/strategies/",
     "dataformat_ohlcv": "json",
     "dataformat_trades": "jsongz"

@@ -58,6 +58,8 @@ For the Freqtrade configuration, you can then use the the full value (including 
 ```json
    "chat_id": "-1001332619709"
 ```
+!!! Warning "Using telegram groups"
+    When using telegram groups, you're giving every member of the telegram group access to your freqtrade bot and to all commands possible via telegram. Please make sure that you can trust everyone in the telegram group to avoid unpleasent surprises.
 
 ## Control telegram noise
 
@@ -93,7 +95,9 @@ Example configuration showing the different settings:
         "buy_cancel": "silent",
         "sell_cancel": "on",
         "buy_fill": "off",
-        "sell_fill": "off"
+        "sell_fill": "off",
+        "protection_trigger": "off",
+        "protection_trigger_global": "on"
     },
     "reload": true,
     "balance_dust_level": 0.01
@@ -103,6 +107,7 @@ Example configuration showing the different settings:
 `buy` notifications are sent when the order is placed, while `buy_fill` notifications are sent when the order is filled on the exchange.
 `sell` notifications are sent when the order is placed, while `sell_fill` notifications are sent when the order is filled on the exchange.
 `*_fill` notifications are off by default and must be explicitly enabled.
+`protection_trigger` notifications are sent when a protection triggers and `protection_trigger_global` notifications trigger when global protections are triggered.
 
 
 `balance_dust_level` will define what the `/balance` command takes as "dust" - Currencies with a balance below this will be shown.
@@ -168,10 +173,12 @@ official commands. You can ask at any moment for help with `/help`.
 | `/profit [<n>]` | Display a summary of your profit/loss from close trades and some stats about your performance, over the last n days (all trades by default)
 | `/forcesell <trade_id>` | Instantly sells the given trade  (Ignoring `minimum_roi`).
 | `/forcesell all` | Instantly sells all open trades (Ignoring `minimum_roi`).
-| `/forcebuy <pair> [rate]` | Instantly buys the given pair. Rate is optional. (`forcebuy_enable` must be set to True)
+| `/forcebuy <pair> [rate]` | Instantly buys the given pair. Rate is optional and only applies to limit orders. (`forcebuy_enable` must be set to True)
 | `/performance` | Show performance of each finished trade grouped by pair
 | `/balance` | Show account balance per currency
 | `/daily <n>` | Shows profit or loss per day, over the last n days (n defaults to 7)
+| `/weekly <n>` | Shows profit or loss per week, over the last n weeks (n defaults to 8)
+| `/monthly <n>` | Shows profit or loss per month, over the last n months (n defaults to 6)
 | `/stats` | Shows Wins / losses by Sell reason as well as Avg. holding durations for buys and sells
 | `/whitelist` | Show the current whitelist
 | `/blacklist [pair]` | Show the current blacklist, or adds a pair to the blacklist.
@@ -245,10 +252,10 @@ current    max
 Return a summary of your profit/loss and performance.
 
 > **ROI:** Close trades  
->   ∙ `0.00485701 BTC (258.45%)`  
+>   ∙ `0.00485701 BTC (2.2%) (15.2 Σ%)`  
 >   ∙ `62.968 USD`  
 > **ROI:** All trades  
->   ∙ `0.00255280 BTC (143.43%)`  
+>   ∙ `0.00255280 BTC (1.5%) (6.43 Σ%)`  
 >   ∙ `33.095 EUR`  
 >  
 > **Total Trade Count:** `138`  
@@ -256,6 +263,10 @@ Return a summary of your profit/loss and performance.
 > **Latest Trade opened:** `2 minutes ago`  
 > **Avg. Duration:** `2:33:45`  
 > **Best Performing:** `PAY/BTC: 50.23%`  
+
+The relative profit of `1.2%` is the average profit per trade.  
+The relative profit of `15.2 Σ%` is be based on the starting capital - so in this case, the starting capital was `0.00485701 * 1.152 = 0.00738 BTC`.
+Starting capital is either taken from the `available_capital` setting, or calculated by using current wallet size - profits.
 
 ### /forcesell <trade_id>
 
@@ -300,8 +311,7 @@ Return the balance of all crypto-currency your have on the exchange.
 
 ### /daily <n>
 
-Per default `/daily` will return the 7 last days.
-The example below if for `/daily 3`:
+Per default `/daily` will return the 7 last days. The example below if for `/daily 3`:
 
 > **Daily Profit over the last 3 days:**
 ```
@@ -310,6 +320,34 @@ Day         Profit BTC      Profit USD
 2018-01-03  0.00224175 BTC  29,142 USD
 2018-01-02  0.00033131 BTC   4,307 USD
 2018-01-01  0.00269130 BTC  34.986 USD
+```
+
+### /weekly <n>
+
+Per default `/weekly` will return the 8 last weeks, including the current week. Each week starts
+from Monday. The example below if for `/weekly 3`:
+
+> **Weekly Profit over the last 3 weeks (starting from Monday):**
+```
+Monday         Profit BTC      Profit USD
+----------  --------------  ------------
+2018-01-03  0.00224175 BTC  29,142 USD
+2017-12-27  0.00033131 BTC   4,307 USD
+2017-12-20  0.00269130 BTC  34.986 USD
+```
+
+### /monthly <n>
+
+Per default `/monthly` will return the 6 last months, including the current month. The example below
+if for `/monthly 3`:
+
+> **Monthly Profit over the last 3 months:**
+```
+Month         Profit BTC      Profit USD
+----------  --------------  ------------
+2018-01     0.00224175 BTC  29,142 USD
+2017-12     0.00033131 BTC   4,307 USD
+2017-11     0.00269130 BTC  34.986 USD
 ```
 
 ### /whitelist

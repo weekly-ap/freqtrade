@@ -125,7 +125,7 @@ def test_get_trade_stake_amount_no_stake_amount(default_conf, mocker) -> None:
                         (1,    None, 50, 66.66666),
                         (0.99, None, 49.5, 66.0),
                         (0.50, None, 25, 33.3333),
-                        # Tests with capital ignore balance_ratio
+    # Tests with capital ignore balance_ratio
                         (1,    100, 50, 0.0),
                         (0.99, 200, 50, 66.66666),
                         (0.99, 150, 50, 50),
@@ -138,7 +138,7 @@ def test_get_trade_stake_amount_unlimited_amount(default_conf, ticker, balance_r
     mocker.patch.multiple(
         'freqtrade.exchange.Exchange',
         fetch_ticker=ticker,
-        buy=MagicMock(return_value=limit_buy_order_open),
+        create_order=MagicMock(return_value=limit_buy_order_open),
         get_fee=fee
     )
 
@@ -157,13 +157,13 @@ def test_get_trade_stake_amount_unlimited_amount(default_conf, ticker, balance_r
     assert result == result1
 
     # create one trade, order amount should be 'balance / (max_open_trades - num_open_trades)'
-    freqtrade.execute_buy('ETH/USDT', result)
+    freqtrade.execute_entry('ETH/USDT', result)
 
     result = freqtrade.wallets.get_trade_stake_amount('LTC/USDT')
     assert result == result1
 
     # create 2 trades, order amount should be None
-    freqtrade.execute_buy('LTC/BTC', result)
+    freqtrade.execute_entry('LTC/BTC', result)
 
     result = freqtrade.wallets.get_trade_stake_amount('XRP/USDT')
     assert result == 0
@@ -185,15 +185,44 @@ def test_get_trade_stake_amount_unlimited_amount(default_conf, ticker, balance_r
     (100, 11, 500, 100),
     (1000, 11, 500, 500),  # Above max-stake
     (20, 15, 10, 0),  # Minimum stake > max-stake
-    (1, 11, 100, 11),  # Below min stake
+    (9, 11, 100, 11),  # Below min stake
     (1, 15, 10, 0),  # Below min stake and min_stake > max_stake
+    (20, 50, 100, 0),  # Below min stake and stake * 1.3 > min_stake
+    (1000, None, 1000, 1000),  # No min-stake-amount could be determined
 
 ])
-def test__validate_stake_amount(mocker, default_conf,
-                                stake_amount, min_stake_amount, max_stake_amount, expected):
+def test_validate_stake_amount(mocker, default_conf,
+                               stake_amount, min_stake_amount, max_stake_amount, expected):
     freqtrade = get_patched_freqtradebot(mocker, default_conf)
 
     mocker.patch("freqtrade.wallets.Wallets.get_available_stake_amount",
                  return_value=max_stake_amount)
-    res = freqtrade.wallets._validate_stake_amount('XRP/USDT', stake_amount, min_stake_amount)
+    res = freqtrade.wallets.validate_stake_amount('XRP/USDT', stake_amount, min_stake_amount)
     assert res == expected
+
+
+@pytest.mark.parametrize('available_capital,closed_profit,open_stakes,free,expected', [
+    (None, 10, 100, 910, 1000),
+    (None, 0, 0, 2500, 2500),
+    (None, 500, 0, 2500, 2000),
+    (None, 500, 0, 2500, 2000),
+    (None, -70, 0, 1930, 2000),
+    # Only available balance matters when it's set.
+    (100, 0, 0, 0, 100),
+    (1000, 0, 2, 5, 1000),
+    (1235, 2250, 2, 5, 1235),
+    (1235, -2250, 2, 5, 1235),
+])
+def test_get_starting_balance(mocker, default_conf, available_capital, closed_profit,
+                              open_stakes, free, expected):
+    if available_capital:
+        default_conf['available_capital'] = available_capital
+    mocker.patch("freqtrade.persistence.models.Trade.get_total_closed_profit",
+                 return_value=closed_profit)
+    mocker.patch("freqtrade.persistence.models.Trade.total_open_trades_stakes",
+                 return_value=open_stakes)
+    mocker.patch("freqtrade.wallets.Wallets.get_free", return_value=free)
+
+    freqtrade = get_patched_freqtradebot(mocker, default_conf)
+
+    assert freqtrade.wallets.get_starting_balance() == expected

@@ -9,7 +9,7 @@ from freqtrade.strategy.interface import SellCheckTuple
 from tests.conftest import get_patched_freqtradebot, patch_get_signal
 
 
-def test_may_execute_sell_stoploss_on_exchange_multi(default_conf, ticker, fee,
+def test_may_execute_exit_stoploss_on_exchange_multi(default_conf, ticker, fee,
                                                      limit_buy_order, mocker) -> None:
     """
     Tests workflow of selling stoploss_on_exchange.
@@ -70,7 +70,7 @@ def test_may_execute_sell_stoploss_on_exchange_multi(default_conf, ticker, fee,
     mocker.patch.multiple(
         'freqtrade.freqtradebot.FreqtradeBot',
         create_stoploss_order=MagicMock(return_value=True),
-        _notify_sell=MagicMock(),
+        _notify_exit=MagicMock(),
     )
     mocker.patch("freqtrade.strategy.interface.IStrategy.should_sell", should_sell_mock)
     wallets_mock = mocker.patch("freqtrade.wallets.Wallets.update", MagicMock())
@@ -127,8 +127,7 @@ def test_may_execute_sell_stoploss_on_exchange_multi(default_conf, ticker, fee,
                         (1, 200),
                         (0.99, 198),
 ])
-def test_forcebuy_last_unlimited(default_conf, ticker, fee, limit_buy_order, mocker, balance_ratio,
-                                 result1) -> None:
+def test_forcebuy_last_unlimited(default_conf, ticker, fee, mocker, balance_ratio, result1) -> None:
     """
     Tests workflow unlimited stake-amount
     Buy 4 trades, forcebuy a 5th trade
@@ -154,7 +153,7 @@ def test_forcebuy_last_unlimited(default_conf, ticker, fee, limit_buy_order, moc
     mocker.patch.multiple(
         'freqtrade.freqtradebot.FreqtradeBot',
         create_stoploss_order=MagicMock(return_value=True),
-        _notify_sell=MagicMock(),
+        _notify_exit=MagicMock(),
     )
     should_sell_mock = MagicMock(side_effect=[
         SellCheckTuple(sell_type=SellType.NONE),
@@ -207,3 +206,72 @@ def test_forcebuy_last_unlimited(default_conf, ticker, fee, limit_buy_order, moc
     assert len(bals2) == 5
     assert 'LTC' in bals
     assert 'LTC' not in bals2
+
+
+def test_dca_buying(default_conf_usdt, ticker_usdt, fee, mocker) -> None:
+    default_conf_usdt['position_adjustment_enable'] = True
+
+    freqtrade = get_patched_freqtradebot(mocker, default_conf_usdt)
+    mocker.patch.multiple(
+        'freqtrade.exchange.Exchange',
+        fetch_ticker=ticker_usdt,
+        get_fee=fee,
+        amount_to_precision=lambda s, x, y: y,
+        price_to_precision=lambda s, x, y: y,
+    )
+
+    patch_get_signal(freqtrade)
+    freqtrade.enter_positions()
+
+    assert len(Trade.get_trades().all()) == 1
+    trade = Trade.get_trades().first()
+    assert len(trade.orders) == 1
+    assert trade.stake_amount == 60
+    assert trade.open_rate == 2.0
+    # No adjustment
+    freqtrade.process()
+    trade = Trade.get_trades().first()
+    assert len(trade.orders) == 1
+    assert trade.stake_amount == 60
+
+    # Reduce bid amount
+    ticker_usdt_modif = ticker_usdt.return_value
+    ticker_usdt_modif['bid'] = ticker_usdt_modif['bid'] * 0.995
+    mocker.patch('freqtrade.exchange.Exchange.fetch_ticker', return_value=ticker_usdt_modif)
+
+    # additional buy order
+    freqtrade.process()
+    trade = Trade.get_trades().first()
+    assert len(trade.orders) == 2
+    for o in trade.orders:
+        assert o.status == "closed"
+    assert trade.stake_amount == 120
+
+    # Open-rate averaged between 2.0 and 2.0 * 0.995
+    assert trade.open_rate < 2.0
+    assert trade.open_rate > 2.0 * 0.995
+
+    # No action - profit raised above 1% (the bar set in the strategy).
+    freqtrade.process()
+    trade = Trade.get_trades().first()
+    assert len(trade.orders) == 2
+    assert trade.stake_amount == 120
+    assert trade.orders[0].amount == 30
+    assert trade.orders[1].amount == 60 / ticker_usdt_modif['bid']
+
+    assert trade.amount == trade.orders[0].amount + trade.orders[1].amount
+    assert trade.nr_of_successful_buys == 2
+
+    # Sell
+    patch_get_signal(freqtrade, value=(False, True, None, None))
+    freqtrade.process()
+    trade = Trade.get_trades().first()
+    assert trade.is_open is False
+    assert trade.orders[0].amount == 30
+    assert trade.orders[0].side == 'buy'
+    assert trade.orders[1].amount == 60 / ticker_usdt_modif['bid']
+    # Sold everything
+    assert trade.orders[-1].side == 'sell'
+    assert trade.orders[2].amount == trade.amount
+
+    assert trade.nr_of_successful_buys == 2

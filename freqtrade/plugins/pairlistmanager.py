@@ -2,13 +2,14 @@
 PairList manager class
 """
 import logging
-from copy import deepcopy
+from functools import partial
 from typing import Dict, List
 
 from cachetools import TTLCache, cached
 
 from freqtrade.constants import ListPairsWithTimeframes
 from freqtrade.exceptions import OperationalException
+from freqtrade.mixins import LoggingMixin
 from freqtrade.plugins.pairlist.IPairList import IPairList
 from freqtrade.plugins.pairlist.pairlist_helpers import expand_pairlist
 from freqtrade.resolvers import PairListResolver
@@ -17,7 +18,7 @@ from freqtrade.resolvers import PairListResolver
 logger = logging.getLogger(__name__)
 
 
-class PairListManager():
+class PairListManager(LoggingMixin):
 
     def __init__(self, exchange, config: dict) -> None:
         self._exchange = exchange
@@ -28,18 +29,21 @@ class PairListManager():
         self._tickers_needed = False
         for pairlist_handler_config in self._config.get('pairlists', None):
             pairlist_handler = PairListResolver.load_pairlist(
-                    pairlist_handler_config['method'],
-                    exchange=exchange,
-                    pairlistmanager=self,
-                    config=config,
-                    pairlistconfig=pairlist_handler_config,
-                    pairlist_pos=len(self._pairlist_handlers)
-                    )
+                pairlist_handler_config['method'],
+                exchange=exchange,
+                pairlistmanager=self,
+                config=config,
+                pairlistconfig=pairlist_handler_config,
+                pairlist_pos=len(self._pairlist_handlers)
+            )
             self._tickers_needed |= pairlist_handler.needstickers
             self._pairlist_handlers.append(pairlist_handler)
 
         if not self._pairlist_handlers:
             raise OperationalException("No Pairlist Handlers defined")
+
+        refresh_period = config.get('pairlist_refresh_period', 3600)
+        LoggingMixin.__init__(self, logger, refresh_period)
 
     @property
     def whitelist(self) -> List[str]:
@@ -108,9 +112,10 @@ class PairListManager():
         except ValueError as err:
             logger.error(f"Pair blacklist contains an invalid Wildcard: {err}")
             return []
-        for pair in deepcopy(pairlist):
+        log_once = partial(self.log_once, logmethod=logmethod)
+        for pair in pairlist.copy():
             if pair in blacklist:
-                logmethod(f"Pair {pair} in your blacklist. Removing it from whitelist...")
+                log_once(f"Pair {pair} in your blacklist. Removing it from whitelist...")
                 pairlist.remove(pair)
         return pairlist
 

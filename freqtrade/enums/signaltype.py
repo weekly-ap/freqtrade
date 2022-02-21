@@ -7,3 +7,11 @@ class SignalType(Enum):
     """
     BUY = "buy"
     SELL = "sell"
+
+
+class SignalTagType(Enum):
+    """
+    Enum for signal columns
+    """
+    BUY_TAG = "buy_tag"
+    EXIT_TAG = "exit_tag"

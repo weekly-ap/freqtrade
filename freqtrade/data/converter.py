@@ -113,7 +113,7 @@ def ohlcv_fill_up_missing_data(dataframe: DataFrame, timeframe: str, pair: str) 
     pct_missing = (len_after - len_before) / len_before if len_before > 0 else 0
     if len_before != len_after:
         message = (f"Missing data fillup for {pair}: before: {len_before} - after: {len_after}"
-                   f" - {round(pct_missing * 100, 2)}%")
+                   f" - {pct_missing:.2%}")
         if pct_missing > 0.01:
             logger.info(message)
         else:
@@ -242,7 +242,7 @@ def convert_trades_format(config: Dict[str, Any], convert_from: str, convert_to:
     :param config: Config dictionary
     :param convert_from: Source format
     :param convert_to: Target format
-    :param erase: Erase souce data (does not apply if source and target format are identical)
+    :param erase: Erase source data (does not apply if source and target format are identical)
     """
     from freqtrade.data.history.idatahandler import get_datahandler
     src = get_datahandler(config['datadir'], convert_from)
@@ -267,7 +267,7 @@ def convert_ohlcv_format(config: Dict[str, Any], convert_from: str, convert_to: 
     :param config: Config dictionary
     :param convert_from: Source format
     :param convert_to: Target format
-    :param erase: Erase souce data (does not apply if source and target format are identical)
+    :param erase: Erase source data (does not apply if source and target format are identical)
     """
     from freqtrade.data.history.idatahandler import get_datahandler
     src = get_datahandler(config['datadir'], convert_from)

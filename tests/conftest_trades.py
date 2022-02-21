@@ -14,6 +14,7 @@ def mock_order_1():
         'side': 'buy',
         'type': 'limit',
         'price': 0.123,
+        'average': 0.123,
         'amount': 123.0,
         'filled': 123.0,
         'remaining': 0.0,
@@ -33,7 +34,7 @@ def mock_trade_1(fee):
         open_rate=0.123,
         exchange='binance',
         open_order_id='dry_run_buy_12345',
-        strategy='DefaultStrategy',
+        strategy='StrategyTestV2',
         timeframe=5,
     )
     o = Order.parse_from_ccxt_object(mock_order_1(), 'ETH/BTC', 'buy')
@@ -87,8 +88,9 @@ def mock_trade_2(fee):
         exchange='binance',
         is_open=False,
         open_order_id='dry_run_sell_12345',
-        strategy='DefaultStrategy',
+        strategy='StrategyTestV2',
         timeframe=5,
+        buy_tag='TEST1',
         sell_reason='sell_signal',
         open_date=datetime.now(tz=timezone.utc) - timedelta(minutes=20),
         close_date=datetime.now(tz=timezone.utc) - timedelta(minutes=2),
@@ -146,7 +148,7 @@ def mock_trade_3(fee):
         close_profit_abs=0.000155,
         exchange='binance',
         is_open=False,
-        strategy='DefaultStrategy',
+        strategy='StrategyTestV2',
         timeframe=5,
         sell_reason='roi',
         open_date=datetime.now(tz=timezone.utc) - timedelta(minutes=20),
@@ -189,7 +191,7 @@ def mock_trade_4(fee):
         open_rate=0.123,
         exchange='binance',
         open_order_id='prod_buy_12345',
-        strategy='DefaultStrategy',
+        strategy='StrategyTestV2',
         timeframe=5,
     )
     o = Order.parse_from_ccxt_object(mock_order_4(), 'ETC/BTC', 'buy')
@@ -241,6 +243,7 @@ def mock_trade_5(fee):
         open_rate=0.123,
         exchange='binance',
         strategy='SampleStrategy',
+        buy_tag='TEST1',
         stoploss_order_id='prod_stoploss_3455',
         timeframe=5,
     )
@@ -295,6 +298,7 @@ def mock_trade_6(fee):
         open_rate=0.15,
         exchange='binance',
         strategy='SampleStrategy',
+        buy_tag='TEST2',
         open_order_id="prod_sell_6",
         timeframe=5,
     )

@@ -16,37 +16,65 @@ from freqtrade.exceptions import OperationalException, StrategyError
 from freqtrade.optimize.space import SKDecimal
 from freqtrade.persistence import PairLocks, Trade
 from freqtrade.resolvers import StrategyResolver
-from freqtrade.strategy.hyper import (BaseParameter, CategoricalParameter, DecimalParameter,
-                                      IntParameter, RealParameter)
+from freqtrade.strategy.hyper import (BaseParameter, BooleanParameter, CategoricalParameter,
+                                      DecimalParameter, IntParameter, RealParameter)
 from freqtrade.strategy.interface import SellCheckTuple
 from freqtrade.strategy.strategy_wrapper import strategy_safe_wrapper
 from tests.conftest import log_has, log_has_re
 
-from .strats.default_strategy import DefaultStrategy
+from .strats.strategy_test_v2 import StrategyTestV2
 
 
 # Avoid to reinit the same object again and again
-_STRATEGY = DefaultStrategy(config={})
+_STRATEGY = StrategyTestV2(config={})
 _STRATEGY.dp = DataProvider({}, None, None)
 
 
-def test_returns_latest_signal(mocker, default_conf, ohlcv_history):
+def test_returns_latest_signal(ohlcv_history):
     ohlcv_history.loc[1, 'date'] = arrow.utcnow()
     # Take a copy to correctly modify the call
     mocked_history = ohlcv_history.copy()
     mocked_history['sell'] = 0
     mocked_history['buy'] = 0
+    # Set tags in lines that don't matter to test nan in the sell line
+    mocked_history.loc[0, 'buy_tag'] = 'wrong_line'
+    mocked_history.loc[0, 'exit_tag'] = 'wrong_line'
+
     mocked_history.loc[1, 'sell'] = 1
 
-    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (False, True)
+    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (False, True, None, None)
     mocked_history.loc[1, 'sell'] = 0
     mocked_history.loc[1, 'buy'] = 1
 
-    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (True, False)
+    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (True, False, None, None)
     mocked_history.loc[1, 'sell'] = 0
     mocked_history.loc[1, 'buy'] = 0
 
-    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (False, False)
+    assert _STRATEGY.get_signal('ETH/BTC', '5m', mocked_history) == (False, False, None, None)
+    mocked_history.loc[1, 'sell'] = 0
+    mocked_history.loc[1, 'buy'] = 1
+    mocked_history.loc[1, 'buy_tag'] = 'buy_signal_01'
+
+    assert _STRATEGY.get_signal(
+        'ETH/BTC',
+        '5m',
+        mocked_history) == (
+        True,
+        False,
+        'buy_signal_01',
+        None)
+
+    mocked_history.loc[1, 'buy_tag'] = None
+    mocked_history.loc[1, 'exit_tag'] = 'sell_signal_01'
+
+    assert _STRATEGY.get_signal(
+        'ETH/BTC',
+        '5m',
+        mocked_history) == (
+        True,
+        False,
+        None,
+        'sell_signal_01')
 
 
 def test_analyze_pair_empty(default_conf, mocker, caplog, ohlcv_history):
@@ -63,15 +91,28 @@ def test_analyze_pair_empty(default_conf, mocker, caplog, ohlcv_history):
 
 
 def test_get_signal_empty(default_conf, mocker, caplog):
-    assert (False, False) == _STRATEGY.get_signal('foo', default_conf['timeframe'], DataFrame())
+    assert (False, False, None, None) == _STRATEGY.get_signal(
+        'foo', default_conf['timeframe'], DataFrame()
+    )
     assert log_has('Empty candle (OHLCV) data for pair foo', caplog)
     caplog.clear()
 
-    assert (False, False) == _STRATEGY.get_signal('bar', default_conf['timeframe'], None)
+    assert (
+        False,
+        False,
+        None,
+        None) == _STRATEGY.get_signal(
+        'bar',
+        default_conf['timeframe'],
+        None)
     assert log_has('Empty candle (OHLCV) data for pair bar', caplog)
     caplog.clear()
 
-    assert (False, False) == _STRATEGY.get_signal('baz', default_conf['timeframe'], DataFrame([]))
+    assert (False, False, None, None) == _STRATEGY.get_signal(
+        'baz',
+        default_conf['timeframe'],
+        DataFrame([])
+    )
     assert log_has('Empty candle (OHLCV) data for pair baz', caplog)
 
 
@@ -107,12 +148,37 @@ def test_get_signal_old_dataframe(default_conf, mocker, caplog, ohlcv_history):
     caplog.set_level(logging.INFO)
     mocker.patch.object(_STRATEGY, 'assert_df')
 
-    assert (False, False) == _STRATEGY.get_signal('xyz', default_conf['timeframe'], mocked_history)
+    assert (False, False, None, None) == _STRATEGY.get_signal(
+        'xyz',
+        default_conf['timeframe'],
+        mocked_history
+    )
     assert log_has('Outdated history for pair xyz. Last tick is 16 minutes old', caplog)
 
 
+def test_get_signal_no_sell_column(default_conf, mocker, caplog, ohlcv_history):
+    # default_conf defines a 5m interval. we check interval * 2 + 5m
+    # this is necessary as the last candle is removed (partial candles) by default
+    ohlcv_history.loc[1, 'date'] = arrow.utcnow()
+    # Take a copy to correctly modify the call
+    mocked_history = ohlcv_history.copy()
+    # Intentionally don't set sell column
+    # mocked_history['sell'] = 0
+    mocked_history['buy'] = 0
+    mocked_history.loc[1, 'buy'] = 1
+
+    caplog.set_level(logging.INFO)
+    mocker.patch.object(_STRATEGY, 'assert_df')
+
+    assert (True, False, None, None) == _STRATEGY.get_signal(
+        'xyz',
+        default_conf['timeframe'],
+        mocked_history
+    )
+
+
 def test_ignore_expired_candle(default_conf):
-    default_conf.update({'strategy': 'DefaultStrategy'})
+    default_conf.update({'strategy': 'StrategyTestV2'})
     strategy = StrategyResolver.load_strategy(default_conf)
     strategy.ignore_buying_expired_candle_after = 60
 
@@ -182,10 +248,6 @@ def test_assert_df(ohlcv_history, caplog):
                        match="Buy column not set"):
         _STRATEGY.assert_df(ohlcv_history.drop('buy', axis=1), len(ohlcv_history),
                             ohlcv_history.loc[df_len, 'close'], ohlcv_history.loc[0, 'date'])
-    with pytest.raises(StrategyError,
-                       match="Sell column not set"):
-        _STRATEGY.assert_df(ohlcv_history.drop('sell', axis=1), len(ohlcv_history),
-                            ohlcv_history.loc[df_len, 'close'], ohlcv_history.loc[0, 'date'])
 
     _STRATEGY.disable_dataframe_checks = True
     caplog.clear()
@@ -196,25 +258,25 @@ def test_assert_df(ohlcv_history, caplog):
     _STRATEGY.disable_dataframe_checks = False
 
 
-def test_ohlcvdata_to_dataframe(default_conf, testdatadir) -> None:
-    default_conf.update({'strategy': 'DefaultStrategy'})
+def test_advise_all_indicators(default_conf, testdatadir) -> None:
+    default_conf.update({'strategy': 'StrategyTestV2'})
     strategy = StrategyResolver.load_strategy(default_conf)
 
     timerange = TimeRange.parse_timerange('1510694220-1510700340')
     data = load_data(testdatadir, '1m', ['UNITTEST/BTC'], timerange=timerange,
                      fill_up_missing=True)
-    processed = strategy.ohlcvdata_to_dataframe(data)
+    processed = strategy.advise_all_indicators(data)
     assert len(processed['UNITTEST/BTC']) == 102  # partial candle was removed
 
 
-def test_ohlcvdata_to_dataframe_copy(mocker, default_conf, testdatadir) -> None:
-    default_conf.update({'strategy': 'DefaultStrategy'})
+def test_advise_all_indicators_copy(mocker, default_conf, testdatadir) -> None:
+    default_conf.update({'strategy': 'StrategyTestV2'})
     strategy = StrategyResolver.load_strategy(default_conf)
     aimock = mocker.patch('freqtrade.strategy.interface.IStrategy.advise_indicators')
     timerange = TimeRange.parse_timerange('1510694220-1510700340')
     data = load_data(testdatadir, '1m', ['UNITTEST/BTC'], timerange=timerange,
                      fill_up_missing=True)
-    strategy.ohlcvdata_to_dataframe(data)
+    strategy.advise_all_indicators(data)
     assert aimock.call_count == 1
     # Ensure that a copy of the dataframe is passed to advice_indicators
     assert aimock.call_args_list[0][0][0] is not data
@@ -226,7 +288,7 @@ def test_min_roi_reached(default_conf, fee) -> None:
     min_roi_list = [{20: 0.05, 55: 0.01, 0: 0.1},
                     {0: 0.1, 20: 0.05, 55: 0.01}]
     for roi in min_roi_list:
-        default_conf.update({'strategy': 'DefaultStrategy'})
+        default_conf.update({'strategy': 'StrategyTestV2'})
         strategy = StrategyResolver.load_strategy(default_conf)
         strategy.minimal_roi = roi
         trade = Trade(
@@ -265,7 +327,7 @@ def test_min_roi_reached2(default_conf, fee) -> None:
                      },
                     ]
     for roi in min_roi_list:
-        default_conf.update({'strategy': 'DefaultStrategy'})
+        default_conf.update({'strategy': 'StrategyTestV2'})
         strategy = StrategyResolver.load_strategy(default_conf)
         strategy.minimal_roi = roi
         trade = Trade(
@@ -300,7 +362,7 @@ def test_min_roi_reached3(default_conf, fee) -> None:
                30: 0.05,
                55: 0.30,
                }
-    default_conf.update({'strategy': 'DefaultStrategy'})
+    default_conf.update({'strategy': 'StrategyTestV2'})
     strategy = StrategyResolver.load_strategy(default_conf)
     strategy.minimal_roi = min_roi
     trade = Trade(
@@ -353,7 +415,7 @@ def test_min_roi_reached3(default_conf, fee) -> None:
 def test_stop_loss_reached(default_conf, fee, profit, adjusted, expected, trailing, custom,
                            profit2, adjusted2, expected2, custom_stop) -> None:
 
-    default_conf.update({'strategy': 'DefaultStrategy'})
+    default_conf.update({'strategy': 'StrategyTestV2'})
 
     strategy = StrategyResolver.load_strategy(default_conf)
     trade = Trade(
@@ -366,7 +428,7 @@ def test_stop_loss_reached(default_conf, fee, profit, adjusted, expected, traili
         exchange='binance',
         open_rate=1,
     )
-    trade.adjust_min_max_rates(trade.open_rate)
+    trade.adjust_min_max_rates(trade.open_rate, trade.open_rate)
     strategy.trailing_stop = trailing
     strategy.trailing_stop_positive = -0.05
     strategy.use_custom_stoploss = custom
@@ -375,7 +437,8 @@ def test_stop_loss_reached(default_conf, fee, profit, adjusted, expected, traili
         strategy.custom_stoploss = custom_stop
 
     now = arrow.utcnow().datetime
-    sl_flag = strategy.stop_loss_reached(current_rate=trade.open_rate * (1 + profit), trade=trade,
+    current_rate = trade.open_rate * (1 + profit)
+    sl_flag = strategy.stop_loss_reached(current_rate=current_rate, trade=trade,
                                          current_time=now, current_profit=profit,
                                          force_stoploss=0, high=None)
     assert isinstance(sl_flag, SellCheckTuple)
@@ -385,8 +448,9 @@ def test_stop_loss_reached(default_conf, fee, profit, adjusted, expected, traili
     else:
         assert sl_flag.sell_flag is True
     assert round(trade.stop_loss, 2) == adjusted
+    current_rate2 = trade.open_rate * (1 + profit2)
 
-    sl_flag = strategy.stop_loss_reached(current_rate=trade.open_rate * (1 + profit2), trade=trade,
+    sl_flag = strategy.stop_loss_reached(current_rate=current_rate2, trade=trade,
                                          current_time=now, current_profit=profit2,
                                          force_stoploss=0, high=None)
     assert sl_flag.sell_type == expected2
@@ -401,7 +465,7 @@ def test_stop_loss_reached(default_conf, fee, profit, adjusted, expected, traili
 
 def test_custom_sell(default_conf, fee, caplog) -> None:
 
-    default_conf.update({'strategy': 'DefaultStrategy'})
+    default_conf.update({'strategy': 'StrategyTestV2'})
 
     strategy = StrategyResolver.load_strategy(default_conf)
     trade = Trade(
@@ -455,7 +519,7 @@ def test_analyze_ticker_default(ohlcv_history, mocker, caplog) -> None:
         advise_sell=sell_mock,
 
     )
-    strategy = DefaultStrategy({})
+    strategy = StrategyTestV2({})
     strategy.analyze_ticker(ohlcv_history, {'pair': 'ETH/BTC'})
     assert ind_mock.call_count == 1
     assert buy_mock.call_count == 1
@@ -486,7 +550,7 @@ def test__analyze_ticker_internal_skip_analyze(ohlcv_history, mocker, caplog) ->
         advise_sell=sell_mock,
 
     )
-    strategy = DefaultStrategy({})
+    strategy = StrategyTestV2({})
     strategy.dp = DataProvider({}, None, None)
     strategy.process_only_new_candles = True
 
@@ -518,8 +582,9 @@ def test__analyze_ticker_internal_skip_analyze(ohlcv_history, mocker, caplog) ->
 
 @pytest.mark.usefixtures("init_persistence")
 def test_is_pair_locked(default_conf):
-    default_conf.update({'strategy': 'DefaultStrategy'})
+    default_conf.update({'strategy': 'StrategyTestV2'})
     PairLocks.timeframe = default_conf['timeframe']
+    PairLocks.use_db = True
     strategy = StrategyResolver.load_strategy(default_conf)
     # No lock should be present
     assert len(PairLocks.get_pair_locks(None)) == 0
@@ -540,6 +605,13 @@ def test_is_pair_locked(default_conf):
     # Unlock original pair
     pair = 'ETH/BTC'
     strategy.unlock_pair(pair)
+    assert not strategy.is_pair_locked(pair)
+
+    # Lock with reason
+    reason = "TestLockR"
+    strategy.lock_pair(pair, arrow.now(timezone.utc).shift(minutes=4).datetime, reason)
+    assert strategy.is_pair_locked(pair)
+    strategy.unlock_reason(reason)
     assert not strategy.is_pair_locked(pair)
 
     pair = 'BTC/USDT'
@@ -570,11 +642,11 @@ def test_is_pair_locked(default_conf):
 
 
 def test_is_informative_pairs_callback(default_conf):
-    default_conf.update({'strategy': 'TestStrategyLegacy'})
+    default_conf.update({'strategy': 'TestStrategyLegacyV1'})
     strategy = StrategyResolver.load_strategy(default_conf)
     # Should return empty
     # Uses fallback to base implementation
-    assert [] == strategy.informative_pairs()
+    assert [] == strategy.gather_informative_pairs()
 
 
 @pytest.mark.parametrize('error', [
@@ -597,7 +669,7 @@ def test_strategy_safe_wrapper_error(caplog, error):
     assert ret
 
     caplog.clear()
-    # Test supressing error
+    # Test suppressing error
     ret = strategy_safe_wrapper(failing_method, message='DeadBeef', supress_error=True)()
     assert log_has_re(r'DeadBeef.*', caplog)
 
@@ -613,7 +685,7 @@ def test_strategy_safe_wrapper(value):
 
     ret = strategy_safe_wrapper(working_method, message='DeadBeef')(value)
 
-    assert type(ret) == type(value)
+    assert isinstance(ret, type(value))
     assert ret == value
 
 
@@ -685,16 +757,32 @@ def test_hyperopt_parameters():
     assert len(list(catpar.range)) == 3
     assert list(catpar.range) == ['buy_rsi', 'buy_macd', 'buy_none']
 
+    boolpar = BooleanParameter(default=True, space='buy')
+    assert boolpar.value is True
+    assert isinstance(boolpar.get_space(''), Categorical)
+    assert isinstance(boolpar.range, list)
+    assert len(list(boolpar.range)) == 1
+
+    boolpar.in_space = True
+    assert len(list(boolpar.range)) == 2
+
+    assert list(boolpar.range) == [True, False]
+
 
 def test_auto_hyperopt_interface(default_conf):
     default_conf.update({'strategy': 'HyperoptableStrategy'})
     PairLocks.timeframe = default_conf['timeframe']
     strategy = StrategyResolver.load_strategy(default_conf)
 
+    with pytest.raises(OperationalException):
+        next(strategy.enumerate_parameters('deadBeef'))
+
     assert strategy.buy_rsi.value == strategy.buy_params['buy_rsi']
     # PlusDI is NOT in the buy-params, so default should be used
     assert strategy.buy_plusdi.value == 0.5
     assert strategy.sell_rsi.value == strategy.sell_params['sell_rsi']
+
+    assert repr(strategy.sell_rsi) == 'IntParameter(74)'
 
     # Parameter is disabled - so value from sell_param dict will NOT be used.
     assert strategy.sell_minusdi.value == 0.5
@@ -702,7 +790,8 @@ def test_auto_hyperopt_interface(default_conf):
     assert isinstance(all_params, dict)
     assert len(all_params['buy']) == 2
     assert len(all_params['sell']) == 2
-    assert all_params['count'] == 4
+    # Number of Hyperoptable parameters
+    assert all_params['count'] == 6
 
     strategy.__class__.sell_rsi = IntParameter([0, 10], default=5, space='buy')
 

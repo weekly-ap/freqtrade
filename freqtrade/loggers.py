@@ -7,11 +7,25 @@ from typing import Any, Dict
 from freqtrade.exceptions import OperationalException
 
 
+class FTBufferingHandler(BufferingHandler):
+    def flush(self):
+        """
+        Override Flush behaviour - we keep half of the configured capacity
+        otherwise, we have moments with "empty" logs.
+        """
+        self.acquire()
+        try:
+            # Keep half of the records in buffer.
+            self.buffer = self.buffer[-int(self.capacity / 2):]
+        finally:
+            self.release()
+
+
 logger = logging.getLogger(__name__)
 LOGFORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 # Initialize bufferhandler - will be used for /log endpoints
-bufferHandler = BufferingHandler(1000)
+bufferHandler = FTBufferingHandler(1000)
 bufferHandler.setFormatter(Formatter(LOGFORMAT))
 
 
@@ -87,7 +101,7 @@ def setup_logging(config: Dict[str, Any]) -> None:
             # syslog config. The messages should be equal for this.
             handler_sl.setFormatter(Formatter('%(name)s - %(levelname)s - %(message)s'))
             logging.root.addHandler(handler_sl)
-        elif s[0] == 'journald':
+        elif s[0] == 'journald':  # pragma: no cover
             try:
                 from systemd.journal import JournaldLogHandler
             except ImportError:
